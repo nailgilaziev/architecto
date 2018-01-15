@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 
 void main() => runApp(new MyApp());
 
@@ -11,13 +12,13 @@ class MyApp extends StatelessWidget {
       theme: new ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: new MyHomePage(title: 'Начало'),
+      home: new MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
+  MyHomePage({Key key}) : super(key: key);
 
   // This widget is the home page of your application. It is stateful, meaning
   // that it has a State object (defined below) that contains fields that affect
@@ -28,8 +29,6 @@ class MyHomePage extends StatefulWidget {
   // used by the build method of the State. Fields in a Widget subclass are
   // always marked "final".
 
-  final String title;
-
   @override
   _MyHomePageState createState() => new _MyHomePageState();
 }
@@ -37,8 +36,9 @@ class MyHomePage extends StatefulWidget {
 class Template {
   final String title;
   final String summary;
+  final String entity;
 
-  const Template(this.title, this.summary);
+  const Template(this.title, this.summary, this.entity);
 }
 
 class TemplateList extends StatefulWidget {
@@ -75,43 +75,38 @@ class _TemplateItem extends StatelessWidget {
     return new Card(
       child: new ListTile(
         title: new Text(template.title),
-        subtitle: new Text(template.summary),
+        subtitle: new Text(template.entity + '. ' + template.summary),
       ),
     );
   }
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+enum UiState { progress, downloaded, error }
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+class _MyHomePageState extends State<MyHomePage> {
+  UiState uiState = UiState.progress;
+  Exception lastError;
+
+  Widget progresView() {
+    return new Scaffold(
+        appBar: new AppBar(
+          // Here we take the value from the MyHomePage object that was created by
+          // the App.build method, and use it to set our appbar title.
+          title: new Text('Ожидайте...'),
+        ),
+        body: new Center(
+          child: new CircularProgressIndicator(),
+        ));
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    var scrollController = new ScrollController();
+  Widget mainView() {
     return new Scaffold(
       appBar: new AppBar(
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
-        title: new Text(widget.title),
+        title: new Text('Начало'),
       ),
       body: new SingleChildScrollView(
-        controller: scrollController,
         child: new Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
@@ -139,10 +134,11 @@ class _MyHomePageState extends State<MyHomePage> {
             new TemplateList(
               templates: [
                 new Template('Выполнение ремонта',
-                    'Исполнитель просто должен выполнить задачу'),
+                    'Исполнитель просто должен выполнить задачу', 'Заявки'),
                 new Template('Инвентаризация',
-                    'Ведение контроля имущественных ценностей'),
-                new Template('Деятельность', 'Что нужно сделать исполнителю'),
+                    'Ведение контроля имущественных ценностей', 'Объекты'),
+                new Template('Деятельность', 'Что нужно сделать исполнителю',
+                    'Сущности'),
               ],
             ),
             new Padding(
@@ -168,10 +164,57 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
       floatingActionButton: new FloatingActionButton(
-        onPressed: _incrementCounter,
+        onPressed: null,
         tooltip: 'Increment',
         child: new Icon(Icons.forward),
       ), // This trailing comma makes auto-formatting nicer for build methods.
     );
+  }
+
+  Widget errorView() {
+    return new Scaffold(
+        appBar: new AppBar(
+          // Here we take the value from the MyHomePage object that was created by
+          // the App.build method, and use it to set our appbar title.
+          title: new Text('Произошла ошибка'),
+        ),
+        body: new Center(
+          child: new Text(lastError.toString()),
+        ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    switch (uiState) {
+      case UiState.downloaded:
+        return mainView();
+      case UiState.error:
+        return errorView();
+      default:
+        if (new DateTime.now().second % 2 == 0)
+          new Timer(const Duration(seconds: 2), afterTemplatesDownloaded);
+        else
+          new Timer(const Duration(seconds: 2),tmpShowError);
+        return progresView();
+    }
+  }
+
+  void afterTemplatesDownloaded() {
+    setState(() {
+      uiState = UiState.downloaded;
+    });
+  }
+
+  void tmpShowError(){
+    showError(new TimeoutException('Now Current second is NOT % 2 == 0'));
+  }
+
+
+  void showError(Exception ex) {
+    setState(() {
+      lastError = ex;
+      uiState = UiState.error;
+    });
+    new Timer(const Duration(seconds: 8), afterTemplatesDownloaded);
   }
 }
